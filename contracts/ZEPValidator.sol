@@ -19,13 +19,17 @@ contract ZEPValidator is Initializable, Ownable, Pausable {
 
   // declare the attribute ID required by ZEP in order to transfer tokens
   uint256 validAttributeID;
+  // ZEPPELIN-AUDIT: shouldn't this be hardcoded?
 
   // organizations are entities who can add attibutes to a number of addresses
+  // ZEPPELIN-AUDIT: typo attibutes
   struct Organization {
     bool exists;
     uint248 maximumAddresses;
+    // ZEPPELIN-AUDIT: what is this? Why 248?
     string name;
     address[] addresses;
+    // ZEPPELIN-AUDIT: bad name. addresses of what?
   }
 
   // addresses of all organizations are held in an array (enables enumeration)
@@ -71,7 +75,7 @@ contract ZEPValidator is Initializable, Ownable, Pausable {
     organizations[_organization].exists = true;
     organizations[_organization].maximumAddresses = _maximumAddresses;
     organizations[_organization].name = _name;
-    
+
     // add the organization to the end of the organizationAddresses array
     organizationAddresses.push(_organization);
 
@@ -92,11 +96,14 @@ contract ZEPValidator is Initializable, Ownable, Pausable {
 
     // set the organization's maximum addresses; a value <= current freezes them
     organizations[_organization].maximumAddresses = _maximum;
+    // ZEPPELIN-AUDIT: What does it mean it freezes them?
   }
 
   // an organization can add an attibute to an address if maximum isn't exceeded
   // (NOTE: this function would need to be payable if a jurisdiction fee is set)
+  // ZEPPELIN-AUDIT: typo attibute.
   function issueAttribute(address _who) external whenNotPaused {
+    // ZEPPELIN-AUDIT: shouldn't this be named like allowZepTransfer?
 
     // check that an empty address was not provided by mistake
     require(_who != address(0), "must supply a valid address");
@@ -113,7 +120,7 @@ contract ZEPValidator is Initializable, Ownable, Pausable {
       organizations[msg.sender].addresses.length < maximum,
       "the organization is not permitted to issue any additional attributes"
     );
- 
+
     // assign the attribute to the jurisdiction (NOTE: a value is not required)
     jurisdiction.addAttributeTo(_who, validAttributeID, 0);
 
@@ -125,7 +132,7 @@ contract ZEPValidator is Initializable, Ownable, Pausable {
 
     // add the address to the end of the organization's `addresses` array
     organizations[msg.sender].addresses.push(_who);
-    
+
     // log the addition of the new attributed address
     emit AttributeIssued(msg.sender, _who);
   }

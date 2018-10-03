@@ -1,3 +1,5 @@
+// ZEPPELIN-AUDIT: missing comment about what does this script does.
+
 var fs = require('fs');
 
 const JurisdictionContractData = require('../build/contracts/BasicJurisdiction.json')

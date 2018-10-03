@@ -2,6 +2,7 @@ pragma solidity ^0.4.24;
 
 /**
  * @title Attribute Registry interface. EIP-165 ID: 0x8af1887e
+ * ZEPPELIN-AUDIT: explain how to validate the EIP-165 ID.
  */
 interface AttributeRegistry {
   /**
@@ -31,12 +32,14 @@ interface AttributeRegistry {
    * @return The total number of available attributes.
    */
   function countAvailableAttributeIDs() external view returns (uint256);
+  // ZEPPELIN-AUDIT: why available? Are there some unavailable?
 
   /**
    * @notice Retrieve an attribute ID defined on the registry by index.
    * @return An attribute ID.
    */
   function getAvailableAttributeID(
+  // ZEPPELIN-AUDIT: why available? Are there some unavailable?
     uint256 _index
   ) external view returns (uint256);
 }

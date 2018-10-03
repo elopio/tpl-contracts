@@ -8,6 +8,10 @@ import './AttributeRegistry.sol';
 import './BasicJurisdictionInterface.sol';
 
 contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistry, BasicJurisdictionInterface {
+  // ZEPPELIN-AUDIT: instead of ownable, why not defining finer-grained roles?
+  // A role that can add and remove attribute types, a role that can add and remove
+  // validators:
+  // https://github.com/OpenZeppelin/openzeppelin-solidity/tree/release-v2.0.0/contracts/access/roles
   using SafeMath for uint256;
 
   // declare events (NOTE: consider which fields should be indexed)
@@ -31,33 +35,50 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
   // validators are entities who can add or authorize addition of new attributes
   struct Validator {
     bool exists;
+    // ZEPPELIN-AUDIT: exists sounds like a bad name. If there is a struct for it,
+    // it exists. Maybe this is more about being enabled or disabled, active or revoked.
+    // Update: non-issue, this is a common (and ugly) pattern:
+    // https://ethereum.stackexchange.com/a/39729/36603
     uint248 index;
+    // ZEPPELIN-AUDIT: why does the validator need to know its own index? That sounds
+    // like the responsibility of the structure that holds validators.
+    // ZEPPELIN-AUDIT: why 248?
     string description;
   }
 
   // attributes are properties that validators associate with specific addresses
   struct Attribute {
     bool exists;
+    // ZEPPELIN-AUDIT: ditto exists.
     address validator;
     uint256 value;
+    // ZEPPELIN-AUDIT: doesn't this need a reference to the type?
   }
 
   // attributes also have associated metadata - data common to an attribute type
   struct AttributeMetadata {
+    // ZEPPELIN-AUDIT: AttributeType?
     bool exists;
+    // ZEPPELIN-AUDIT: ditto exists.
     uint248 index;
+    // ZEPPELIN-AUDIT: ditto index, ditto 248?
     string description;
     mapping(address => bool) approvedValidators;
+    // ZEPPELIN-AUDIT: only approved?
   }
 
   // top-level information about attribute types is held in a mapping of structs
   mapping(uint256 => AttributeMetadata) attributeTypes;
+  // ZEPPELIN-AUDIT: What is this uint256? The same as index?
 
   // the jurisdiction retains a mapping of addresses with assigned attributes
   mapping(address => mapping(uint256 => Attribute)) attributes;
+  // ZEPPELIN-AUDIT: What is this uint256?
 
   // there is also a mapping to identify all approved validators and their keys
   mapping(address => Validator) validators;
+  // ZEPPELIN-AUDIT: all the once that have been ever approved? Or only the currently
+  // approved?
 
   // once attribute types are assigned to an ID, they cannot be modified
   mapping(uint256 => bytes32) attributeTypeHashes;
@@ -77,6 +98,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
   // the contract owner may declare attributes recognized by the jurisdiction
   function addAttributeType(
     uint256 _id,
+    // ZEPPELIN-AUDIT: why is the id a parameter and not auto-assigned?
     bool _restrictedAccess,
     bool _onlyPersonal,
     address _secondarySource,
@@ -106,17 +128,20 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
     bytes32 hash = keccak256(
       abi.encodePacked(
         _id, false, false, _description
+        // ZEPPELIN-AUDIT: do not hard-code these false values. What are they?
       )
     );
 
     // store hash if attribute type is the first one registered with provided ID
     if (attributeTypeHashes[_id] == bytes32(0)) {
+      // ZEPPELIN-AUDIT: how can it be already registered if the id is unique?
       attributeTypeHashes[_id] = hash;
     }
 
     // prevent addition if different attribute type with the same ID has existed
     require(
       hash == attributeTypeHashes[_id],
+      // ZEPPELIN-AUDIT: ditto, id's are unique, hashes are unique, right?
       'attribute type properties must match initial properties assigned to ID'
     );
 
@@ -127,7 +152,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
       description: _description
       // NOTE: no approvedValidators variable declaration - must be added later
     });
-    
+
     // add the attribute id to the end of the attributeId array
     attributeIds.push(_id);
 
@@ -151,9 +176,10 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
 
     // update the index of the attribute type that was moved
     attributeTypes[lastAttributeId].index = attributeTypes[_id].index;
-    
+
     // remove the (now duplicate) attribute ID at the end and trim the array
     delete attributeIds[attributeIds.length.sub(1)];
+    // ZEPPELIN-AUDIT: There's no need to delete, it's enough to decrease length.
     attributeIds.length--;
 
     // delete the attribute type's record from the mapping
@@ -177,7 +203,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
       isValidator(_validator) == false,
       "a validator with the provided address already exists"
     );
-    
+
     // create a record for the validator
     validators[_validator] = Validator({
       exists: true,
@@ -187,7 +213,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
 
     // add the validator to the end of the validatorAddresses array
     validatorAddresses.push(_validator);
-    
+
     // log the addition of the new validator
     emit ValidatorAdded(_validator, _description);
   }
@@ -208,7 +234,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
 
     // update the index of the attribute type that was moved
     validators[lastAddress].index = validators[_validator].index;
-    
+
     // remove the (now duplicate) validator address at the end & trim the array
     delete validatorAddresses[validatorAddresses.length.sub(1)];
     validatorAddresses.length--;
@@ -224,10 +250,12 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
   function addValidatorApproval(
     address _validator,
     uint256 _attribute
+    // ZEPPELIN-AUDIT: atributeTypeId.
   ) external onlyOwner whenNotPaused {
     // check that the attribute is predefined and that the validator exists
     require(
       isValidator(_validator) && isDesignatedAttribute(_attribute),
+      // ZEPPELIN-AUDIT: split the condition into separate requires.
       "must specify both a valid attribute and an available validator"
     );
 
@@ -250,6 +278,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
     uint256 _attribute
   ) external onlyOwner whenNotPaused {
     // check that the attribute is predefined and that the validator exists
+    // ZEPPELIN-AUDIT: wrong comment.
     require(
       canValidate(_validator, _attribute),
       "unable to remove validator approval, attribute is already unapproved"
@@ -257,7 +286,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
 
     // remove the validator approval status from the attribute
     delete attributeTypes[_attribute].approvedValidators[_validator];
-    
+
     // log the removal of the validator's attribute type approval
     emit ValidatorApprovalRemoved(_validator, _attribute);
   }
@@ -275,6 +304,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
     // NOTE: if msg.sender is a proxy contract, its ownership may be transferred
     // at will, circumventing any token transfer restrictions. Restricting usage
     // to only externally owned accounts may partially alleviate this concern.
+    // ZEPPELIN-AUDIT: this is important. Document a known-issue?
     require(
       msg.value == 0,
       "Basic jurisdictions do not support payments when assigning attributes"
@@ -293,6 +323,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
     // and update value if the validator is the same?
 
     // store attribute value and amount of ether staked in correct scope
+    // ZEPPELIN-AUDIT: no stake here.
     attributes[_who][_attribute] = Attribute({
       exists: true,
       validator: msg.sender,
@@ -310,7 +341,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
   ) external whenNotPaused {
     // determine the assigned validator on the user attribute
     address validator = attributes[_who][_attribute].validator;
-    
+
     // caller must be either the jurisdiction owner or the assigning validator
     require(
       msg.sender == validator || msg.sender == owner(),
@@ -327,19 +358,21 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
 
     // log the removal of the attribute
     emit AttributeRemoved(validator, _who, _attribute);
-  }  
+  }
 
   // external interface for determining the existence of an attribute
   function hasAttribute(
-    address _who, 
+    address _who,
     uint256 _attribute
   ) external view returns (bool) {
     // gas optimization: get validator & call canValidate function body directly
+    // ZEPPELIN-AUDIT: I would prefer to leave optimizations to solidity.
+    // Was this optimization measured?
     address validator = attributes[_who][_attribute].validator;
     return (
       validators[validator].exists &&   // isValidator(validator)
       attributeTypes[_attribute].approvedValidators[validator] &&
-      attributeTypes[_attribute].exists  // isDesignatedAttribute(_attribute)    
+      attributeTypes[_attribute].exists  // isDesignatedAttribute(_attribute)
     );
   }
 
@@ -354,7 +387,9 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
       validators[validator].exists &&   // isValidator(validator)
       attributeTypes[_attribute].approvedValidators[validator] &&
       attributeTypes[_attribute].exists  // isDesignatedAttribute(_attribute)
-    ) {
+    )
+      // ZEPPELIN-AUDIT: call hasAttribute, make it public instead of external.
+      {
       return attributes[_who][_attribute].value;
     }
 
@@ -382,6 +417,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
       0,
       0,
       0
+      // ZEPPELIN-AUDIT: better not to hardcode these values.
     );
   }
 
@@ -436,6 +472,7 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
     uint256 _attribute
   ) external view returns (bool) {
     return canValidate(_validator, _attribute);
+    // ZEPPELIN-AUDIT: why two different names?
   }
 
   // external interface for determining the validator of an issued attribute
@@ -461,12 +498,13 @@ contract BasicJurisdiction is Initializable, Ownable, Pausable, AttributeRegistr
       _interfaceID == this.hasAttribute.selector // AttributeRegistry
                       ^ this.getAttribute.selector
                       ^ this.countAvailableAttributeIDs.selector
-                      ^ this.getAvailableAttributeID.selector 
+                      ^ this.getAvailableAttributeID.selector
     ); // 0x01ffc9a7 || 0x8af1887e
   }
 
   // helper function, determine if a given ID corresponds to an attribute type
   function isDesignatedAttribute(uint256 _attribute) public view returns (bool) {
+    // ZEPPELIN-AUDIT: bad name. isExistentAttribute? attributeExists?
     return attributeTypes[_attribute].exists;
   }
 

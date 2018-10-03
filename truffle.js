@@ -12,6 +12,7 @@ module.exports = {
   solc: {
     optimizer: {
       enabled: true,
+// ZEPPELIN-AUDIT: optimizations are enabled. Is this safe enough?
       runs: 500
     }
   }

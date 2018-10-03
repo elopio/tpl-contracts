@@ -1,9 +1,13 @@
 pragma solidity ^0.4.24;
+// ZEPPELIN-AUDIT:
+// Move to an examples directory.
 
 import "openzeppelin-zos/contracts/token/ERC20/ERC20.sol";
 import "./AttributeRegistry.sol";
 
 contract TPLToken is Initializable, ERC20 {
+// ZEPPELIN-AUDIT:
+// Missing contract comment.
 
   // declare registry interface, used to request attributes from a jurisdiction
   AttributeRegistry registry;
@@ -42,6 +46,8 @@ contract TPLToken is Initializable, ERC20 {
   ) public view returns (bool) {
     _from;
     _value;
+    // ZEPPELIN-AUDIT: instead of using these arguments, do what solidity suggests:
+    // "remove or comment out the variable name to silence this warning".
     return registry.hasAttribute(_to, validRecipientAttributeId);
   }
 
